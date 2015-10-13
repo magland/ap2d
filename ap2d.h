@@ -2,12 +2,13 @@
 #define AP2D_H
 
 struct AP2D_OPTIONS {
-    double *initial_means_re; //(N1xN2)
-    double *initial_means_im; //(N1xN2)
+	double *initial_re; //(N1xN2)
+	double *initial_im; //(N1xN2)
     double *initial_stdevs; //(N1xN2)
     double tolerance;
     int max_iterations;
-    double oversamp;
+	double *mask;
+	double alpha1,alpha2,beta;
 };
 
 void ap2d(int N1,int N2,double *f_out,double *u_in,const AP2D_OPTIONS &opts);

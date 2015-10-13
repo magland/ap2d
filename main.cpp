@@ -6,7 +6,7 @@
 #include "omp.h"
 
 void usage() {
-    printf("usage: ap2d input.mda --out-recon=output.mda --out-resid-err=residerr.mda --tol=1e-8 --maxit=50000 --count=10 --ref=reference.mda --num-threads=2\n");
+	printf("usage: ap2d input.mda --out-recon=output.mda --out-resid-err=residerr.mda --tol=1e-8 --maxit=50000 --count=10 --ref=reference.mda --num-threads=2 --oversamp=1 --init-re=imr.mda --init-im=imi.mda --init-stdevs=is.mda --alpha1=0.9 --alpha2=0.95 --beta=1.5\n");
 }
 
 unsigned long long rdtsc(){
@@ -20,8 +20,8 @@ int main(int argc, char *argv[])
     //srand (time(NULL));
     srand (rdtsc());
 
-    QStringList required; required << "tol" << "maxit" << "count" << "oversamp";
-    QStringList optional; optional << "ref" << "out-recon" << "out-resid-err" << "num-threads" << "init-means-re" << "init-means-im" << "init-stdevs";
+	QStringList required; required << "tol" << "maxit" << "count" << "mask";
+	QStringList optional; optional << "ref" << "out-recon" << "out-resid-err" << "num-threads" << "init-re" << "init-im" << "init-stdevs" << "alpha1" << "alpha2" << "beta";
     CLParams CLP=parse_command_line_params(argc,argv,required,optional);
 
     if ((!CLP.success)||(CLP.unnamed_parameters.count()!=1)) {
@@ -34,7 +34,10 @@ int main(int argc, char *argv[])
     int count=CLP.named_parameters.value("count").toInt();
     QString reference_path=CLP.named_parameters.value("ref");
     int num_threads=CLP.named_parameters.value("num-threads","1").toInt();
-    double oversamp=CLP.named_parameters.value("oversamp","1").toDouble();
+	QString mask_path=CLP.named_parameters.value("mask");
+	double alpha1=CLP.named_parameters.value("alpha1","0.9").toDouble();
+	double alpha2=CLP.named_parameters.value("alpha2","0.95").toDouble();
+	double beta=CLP.named_parameters.value("beta","1.5").toDouble();
 
     QString input_path=CLP.unnamed_parameters.value(0);
     QString out_recon_path=CLP.named_parameters.value("out-recon");
@@ -74,37 +77,47 @@ int main(int argc, char *argv[])
     }
 
     AP2D_OPTIONS opts;
-    opts.initial_means_re=0;
-    opts.initial_means_im=0;
+	opts.initial_re=0;
+	opts.initial_im=0;
     opts.initial_stdevs=0;
     opts.max_iterations=max_iterations;
     opts.tolerance=tolerance;
-    opts.oversamp=oversamp;
+	opts.alpha1=alpha1;
+	opts.alpha2=alpha2;
+	opts.beta=beta;
 
-    Mda init_means_re;
-    Mda init_means_im;
+	Mda init_re;
+	Mda init_im;
     Mda init_stdevs;
-    if (!CLP.named_parameters.value("init-means-re").isEmpty()) {
-        init_means_re.read(CLP.named_parameters["init-means-re"]);
-        init_means_im.read(CLP.named_parameters["init-means-im"]);
+	if (!CLP.named_parameters.value("init-re").isEmpty()) {
+		init_re.read(CLP.named_parameters["init-re"]);
+		init_im.read(CLP.named_parameters["init-im"]);
         init_stdevs.read(CLP.named_parameters["init-stdevs"]);
 
-        if ((init_means_re.N1()!=N1)||(init_means_re.N2()!=N2)) {
-            printf("Inconsistent dimensions for init-means-re\n");
+		if ((init_re.N1()!=N1)||(init_re.N2()!=N2)) {
+			printf("Inconsistent dimensions for init-re %d,%d <> %d,%d\n",init_re.N1(),init_re.N2(),N1,N2);
             return 0;
         }
-        if ((init_means_im.N1()!=N1)||(init_means_im.N2()!=N2)) {
-            printf("Inconsistent dimensions for init-means-re\n");
+		if ((init_im.N1()!=N1)||(init_im.N2()!=N2)) {
+			printf("Inconsistent dimensions for init-im\n");
             return 0;
         }
         if ((init_stdevs.N1()!=N1)||(init_stdevs.N2()!=N2)) {
             printf("Inconsistent dimensions for init-stdevs\n");
             return 0;
         }
-        opts.initial_means_re=init_means_re.dataPtr();
-        opts.initial_means_im=init_means_im.dataPtr();
+		opts.initial_re=init_re.dataPtr();
+		opts.initial_im=init_im.dataPtr();
         opts.initial_stdevs=init_stdevs.dataPtr();
     }
+
+	Mda mask;
+	mask.read(mask_path);
+	if ((mask.N1()!=N1)||(mask.N2()!=N2)) {
+		printf("Inconsistent dimensions for mask %d,%d <> %d,%d\n",mask.N1(),mask.N2(),N1,N2);
+		return 0;
+	}
+	opts.mask=mask.dataPtr();
 
     omp_set_num_threads(num_threads);
     #pragma omp parallel

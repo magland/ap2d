@@ -216,17 +216,11 @@ double randn() {
     return sqrt(-2*log(v1))*cos(2*M_PI*v2); //box-muller - https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
 }
 
-void pi_1(int N1,int N2,double *out,double *in,double alpha1,double oversamp) {
-
-    int xmin=(int)(N1*(0.5-1/oversamp*0.5));
-    int xmax=(int)(N1*(0.5+1/oversamp*0.5));
-    int ymin=(int)(N2*(0.5-1/oversamp*0.5));
-    int ymax=(int)(N2*(0.5+1/oversamp*0.5));
-
+void pi_1(int N1,int N2,double *out,double *in,double alpha1,double *mask) {
     int ii=0;
     for (int y=0; y<N2; y++) {
         for (int x=0; x<N1; x++) {
-            if ((in[ii]>=0)&&(xmin<=x)&&(x<=xmax)&&(ymin<=y)&&(y<=ymax)) {
+			if ((in[ii]>=0)&&(mask[ii])) {
             //if ((xmin<=x)&&(x<=xmax)&&(ymin<=y)&&(y<=ymax)) {
                 out[ii]=in[ii];
             }
@@ -264,9 +258,9 @@ void copy_double(int N,double *out,double *in) {
 }
 
 void ap2d(int N1,int N2,double *f_out,double *u_in,const AP2D_OPTIONS &opts) {
-    double alpha1=0.9;
-    double alpha2=0.95;
-    double beta=1.5;
+	double alpha1=opts.alpha1;
+	double alpha2=opts.alpha2;
+	double beta=opts.beta;
     double mu1=alpha1*beta;
     double mu2=alpha2*mu1/(alpha1-alpha1*alpha2);
 
@@ -280,10 +274,10 @@ void ap2d(int N1,int N2,double *f_out,double *u_in,const AP2D_OPTIONS &opts) {
     ifft_real2real(N1,N2,u_ifft,u_in);
     double u_norm=compute_norm(N1*N2,u_ifft);
 
-    if (opts.initial_means_re) {
+	if (opts.initial_re) {
         for (int ii=0; ii<N1*N2; ii++) {
-            f3hat[ii*2]=opts.initial_means_re[ii]+randn()*opts.initial_stdevs[ii];
-            f3hat[ii*2+1]=opts.initial_means_im[ii]+randn()*opts.initial_stdevs[ii];
+			f3hat[ii*2]=opts.initial_re[ii]+randn()*opts.initial_stdevs[ii];
+			f3hat[ii*2+1]=opts.initial_im[ii]+randn()*opts.initial_stdevs[ii];
         }
     }
     else {
@@ -312,7 +306,7 @@ void ap2d(int N1,int N2,double *f_out,double *u_in,const AP2D_OPTIONS &opts) {
     int num_steps_within_tolerance=0;
     while (!done) {
         /////////////////////////////
-        pi_1(N1,N2,f2,f,alpha1,opts.oversamp);
+		pi_1(N1,N2,f2,f,alpha1,opts.mask);
 
         /////////////////////////////
         fft_real2complex(N1,N2,f2hat,f2,real2complex_plan,real2complex_out,real2complex_in);
@@ -367,7 +361,7 @@ double compute_resid(int N1, int N2, double *f, double *u,AP2D_OPTIONS opts)
 
     ifft_real2real(N1,N2,u_ifft,u);
     double u_norm=compute_norm(N1*N2,u_ifft);
-    pi_1(N1,N2,f2,f,1,opts.oversamp);
+	pi_1(N1,N2,f2,f,1,opts.mask);
     double val=0;
     for (int ii=0; ii<N1*N2; ii++) {
         val+=(f[ii]-f2[ii])*(f[ii]-f2[ii]);
