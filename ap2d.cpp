@@ -506,3 +506,25 @@ double register_and_compute_error(int N1, int N2, double *f1, double *f2, double
 
     return err;
 }
+
+void ap2d(int N1,int N2,double *f_out,double *u_in,double *initial,double *initial_stdevs,double tolerance,int max_iterations,double *mask,double alpha1,double alpha2,double beta) {
+	AP2D_OPTIONS opts;
+	opts.initial_re=(double *)malloc(sizeof(double)*N1*N2);
+	opts.initial_im=(double *)malloc(sizeof(double)*N1*N2);
+	for (int ii=0; ii<N1*N2; ii++) {
+		opts.initial_re[ii]=initial[ii*2];
+		opts.initial_im[ii]=initial[ii*2+1];
+	}
+	opts.initial_stdevs=initial_stdevs;
+	opts.tolerance=tolerance;
+	opts.max_iterations=max_iterations;
+	opts.mask=mask;
+	opts.alpha1=alpha1;
+	opts.alpha2=alpha2;
+	opts.beta=beta;
+    
+	ap2d(N1,N2,f_out,u_in,opts);
+
+	free(opts.initial_re);
+	free(opts.initial_im);
+}
